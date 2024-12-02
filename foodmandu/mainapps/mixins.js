@@ -3,12 +3,12 @@ import { User } from "../accounts/model.js";
 
 const AdminUser = (req, res, next) => {
   let token;
-  if (req.headers.authorization?.startWith("token")) {
+  if (req.headers.authorization?.startsWith("token")) {
     token = req.headers.authorization.split(" ")[1];
     var decoded = jwt.verify(token, process.env.SECRET_KEY);
     if (req.userId != decoded.id) {
-      const error = new Error("Not Authorized");
-      error.status = 402;
+      const error = new Error("You Donot Have Aceess");
+      error.status = 401;
       next(error);
       return;
     }
