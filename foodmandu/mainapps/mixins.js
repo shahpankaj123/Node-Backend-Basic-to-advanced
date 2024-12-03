@@ -6,16 +6,9 @@ const AdminUser = (req, res, next) => {
   if (req.headers.authorization?.startsWith("token")) {
     token = req.headers.authorization.split(" ")[1];
     var decoded = jwt.verify(token, process.env.SECRET_KEY);
-    if (req.userId != decoded.id) {
-      const error = new Error("You Donot Have Aceess");
-      error.status = 401;
-      next(error);
-      return;
-    }
-    const usr = User.findOne({ _id: decoded.id });
-    if (usr && usr.userType === "admin") {
-      next();
-      return;
+    const usr = User.findById(decoded.id).populate("userType");
+    if (usr && usr.userType.name === "admin") {
+      return next();
     }
   }
   const error = new Error("Not Authorized");
@@ -26,19 +19,12 @@ const AdminUser = (req, res, next) => {
 
 const NormalUser = async (req, res, next) => {
   let token;
-  if (req.headers.authorization?.startWith("token")) {
+  if (req.headers.authorization?.startsWith("token")) {
     token = req.headers.authorization.split(" ")[1];
     var decoded = jwt.verify(token, process.env.SECRET_KEY);
-    if (req.userId != decoded.id) {
-      const error = new Error("Not Authorized");
-      error.status = 402;
-      next(error);
-      return;
-    }
-    const usr = await User.findById(decoded.id);
-    if (usr && usr.userType === "normal") {
-      next();
-      return;
+    const usr = await User.findById(decoded.id).populate("userType");
+    if (usr && usr.userType.name === "normal") {
+      return next();
     }
   }
   const error = new Error("Not Authorized");

@@ -2,6 +2,7 @@ import { is_none, message } from "../../mainapps/common_function.js";
 import { Gender, User, UserType } from "../model.js";
 import passwordHash from "password-hash";
 import jwt from "jsonwebtoken";
+import sendEmail from "../../mainapps/mail_send.js";
 
 class LoginModule {
   constructor(data) {
@@ -30,7 +31,7 @@ class LoginModule {
     const usrtype = await UserType.findOne({ name: "normal" });
     const genderType = await Gender.findById(genderId);
 
-    const createdUser = await User.create({
+    const createdUser = await User({
       username: userName,
       email,
       full_name: fullName,
@@ -38,12 +39,29 @@ class LoginModule {
       gender: genderType,
       password: hashedPassword,
     });
-
-    if (!createdUser) {
-      return { res_data: message("Something Went Wrong"), st: 400 };
+    try {
+      const url = `localhost:4000/web/api/v1/user/verify-account?userId=${createdUser._id}`;
+      await sendEmail(createdUser.email, "Activate Your Account", url);
+      createdUser.save();
+      return { res_data: message("Please Activate Your Account"), st: 201 };
+    } catch (err) {
+      console.error("Error creating user:", err);
+      return { res_data: message("Something Went Wrong"), st: 500 };
     }
+  }
 
-    return { res_data: message("User Created Successfully"), st: 201 };
+  async verify_user() {
+    const { userId } = this.data;
+    const usr = await User.findById(userId);
+    if (!usr) {
+      return { res_data: message("User Not Found"), st: 404 };
+    }
+    if (usr.isActive) {
+      return { res_data: message("Account Already Verified"), st: 200 };
+    }
+    usr.isActive = true;
+    usr.save();
+    return { res_data: message("Account Verified Successfully"), st: 200 };
   }
 
   async login_user() {
@@ -55,6 +73,9 @@ class LoginModule {
     if (!usr) {
       return { res_data: message("User Not Found"), st: 404 };
     }
+    if (!usr.isActive) {
+      return { res_data: message("Activate Your Account"), st: 400 };
+    }
     if (!passwordHash.verify(password, usr.password)) {
       return { res_data: message("Email or Password Not Matched"), st: 400 };
     }
@@ -65,6 +86,17 @@ class LoginModule {
       res_data: { message: "Login Sucessfully", token: token, id: usr._id },
       st: 200,
     };
+  }
+
+  async get_user_details() {
+    const { userId } = this.data;
+    const usr = await User.findById(userId)
+      .select("username email full_name gender")
+      .populate("gender", "name");
+    if (!usr) {
+      return { res_data: message("User Not Found"), st: 400 };
+    }
+    return { res_data: usr, st: 200 };
   }
 }
 
